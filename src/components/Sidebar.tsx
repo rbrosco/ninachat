@@ -8,6 +8,7 @@ import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/ui/s
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiUser, FiSettings, FiLogOut } from 'react-icons/fi';
+import { createPortal } from 'react-dom';
 import viaIcon from '@/assets/icon-via.png';
 
 const menuItemsBase = [
@@ -129,11 +130,12 @@ const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
   const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      if (containerRef.current.contains(e.target as Node)) return;
+      if (buttonRef.current && buttonRef.current.contains(e.target as Node)) return;
       setOpenMenu(false);
     };
     document.addEventListener('click', onDocClick);
@@ -144,10 +146,35 @@ const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
   const handleSettings = () => { setOpenMenu(false); navigate('/settings'); };
   const handleSignOut = async () => { setOpenMenu(false); try { await auth.signOut(); navigate('/auth'); } catch (err) { console.error('signout', err); } };
 
+  const toggleMenu = () => {
+    const willOpen = !openMenu;
+    if (willOpen && buttonRef.current) {
+      const r = buttonRef.current.getBoundingClientRect();
+      // menu dimensions estimate (w-44 = 11rem = 176px)
+      const menuW = 176;
+      // prefer opening to the right of the avatar with small offset
+      // try opening to the left of the button first so menu sits beside it
+      const leftIfLeft = Math.round(r.left - menuW - 8);
+      const leftIfRight = Math.round(r.right + 8);
+      // choose left position if it fits, otherwise open to the right; clamp to viewport
+      let chosenLeft = leftIfLeft >= 12 ? leftIfLeft : leftIfRight;
+      chosenLeft = Math.min(Math.max(chosenLeft, 12), Math.max(12, window.innerWidth - menuW - 12));
+      const left = chosenLeft;
+      // center vertically on the button and move it further down so it sits below the click (more space)
+      const rawTop = Math.round(r.top + r.height / 2 + 76);
+      // clamp vertical position to keep menu visible (estimate max menu height ~160px)
+      const minTop = 12;
+      const maxTop = Math.max(minTop, window.innerHeight - 160 - 12);
+      const top = Math.min(Math.max(rawTop, minTop), maxTop);
+      setCoords({ left, top });
+    }
+    setOpenMenu(willOpen);
+  };
+
   return (
     <div className="pt-2 px-2">
       <div ref={containerRef} className="relative">
-        <button onClick={() => setOpenMenu(v => !v)} className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-secondary/50 transition-colors group">
+        <button ref={buttonRef} onClick={toggleMenu} type="button" className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-secondary/50 transition-colors group">
           <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary/20 to-secondary flex items-center justify-center text-xs font-bold text-primary border border-border ring-2 ring-transparent group-hover:ring-primary/20 transition-all flex-shrink-0">
             AD
           </div>
@@ -164,8 +191,11 @@ const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
           </motion.div>
         </button>
 
-        {openMenu && (
-          <div className="absolute left-2 bottom-14 w-44 bg-white dark:bg-slate-800 shadow-lg rounded-md z-50 border border-border/50 py-1">
+        {openMenu && coords && createPortal(
+          <div
+            className={"w-44 bg-white dark:bg-slate-800 shadow-lg rounded-md z-50 border border-border/50 py-1"}
+            style={{ position: 'fixed', left: coords.left, top: coords.top, transform: 'translateY(-50%)', zIndex: 9999 }}
+          >
             <button onClick={handleProfile} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
               <FiUser className="w-4 h-4 mr-2 text-gray-600 dark:text-slate-300" /> Perfil
             </button>
@@ -176,7 +206,7 @@ const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
             <button onClick={handleSignOut} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
               <FiLogOut className="w-4 h-4 mr-2" /> Sair
             </button>
-          </div>
+          </div>, document.body
         )}
       </div>
     </div>
