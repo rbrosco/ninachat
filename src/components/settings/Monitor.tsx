@@ -64,6 +64,8 @@ const Monitor: React.FC = () => {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferConv, setTransferConv] = useState<any | null>(null);
   const [transferTo, setTransferTo] = useState<string | null>(null);
+  const [viewConv, setViewConv] = useState<any | null>(null);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -164,7 +166,8 @@ const Monitor: React.FC = () => {
             key={c.id}
             c={c}
             onView={() => {
-              navigate(`/chat?conversation=${c.id}`);
+              setViewConv(c);
+              setLeftPanelOpen(true);
             }}
             onAssume={async (conv) => {
               try {
@@ -221,6 +224,53 @@ const Monitor: React.FC = () => {
             </SheetContent>
           </Sheet>
         )}
+        {/* Left-side conversation detail panel */}
+        <Sheet open={leftPanelOpen} onOpenChange={(v) => { if (!v) setViewConv(null); setLeftPanelOpen(v); }}>
+          <SheetContent side="left" className="w-full sm:max-w-lg overflow-y-auto p-0">
+            <SheetHeader className="p-6 border-b border-gray-200 dark:border-slate-800">
+              <SheetTitle className="text-gray-900 dark:text-white font-semibold">Conversa — {viewConv?.contactName || '—'}</SheetTitle>
+            </SheetHeader>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-gray-200/60 dark:bg-slate-800/60 flex items-center justify-center text-gray-900 dark:text-white font-semibold">{(viewConv?.contactName||'U').charAt(0)}</div>
+                <div>
+                  <div className="font-semibold">{viewConv?.contactName || '—'}</div>
+                  <div className="text-sm text-gray-500 dark:text-slate-400">{viewConv?.contactPhone || ''}</div>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-500 dark:text-slate-400 mb-2">Responsável</div>
+                <div className="p-3 rounded bg-gray-100/30 dark:bg-slate-900/30">{viewConv?.assignedUserName || '—'}</div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-500 dark:text-slate-400 mb-2">Última mensagem</div>
+                <div className="p-3 rounded bg-gray-100/30 dark:bg-slate-900/30 text-sm">{viewConv?.lastMessage || 'Sem mensagens'}</div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-500 dark:text-slate-400 mb-2">Detalhes</div>
+                <div className="text-sm text-gray-600 dark:text-slate-300">Instância: {instances.find(i => i.id === viewConv?.instanceId)?.name || '—'}</div>
+                <div className="text-sm text-gray-600 dark:text-slate-300">Status: {viewConv?.status || '—'}</div>
+              </div>
+
+              <div className="flex justify-between">
+                <div className="flex gap-2">
+                  <button type="button" onClick={async () => {
+                    if (!viewConv) return;
+                    try { setLoading(true); const userId = user?.id || team[0]?.id || null; const userName = getDisplayName(user) || team[0]?.name || '—'; await api.assignConversation(viewConv.id, userId, viewConv.contactId || null); setConvs(prev => prev.map(p => p.id === viewConv.id ? { ...p, assignedUserId: userId, assignedUserName: userName } : p)); setViewConv(prev => prev ? { ...prev, assignedUserId: userId, assignedUserName: userName } : prev); } catch (e) { console.error(e); } finally { setLoading(false); }
+                  }} className="px-3 py-2 rounded bg-emerald-600 text-gray-900">Assumir</button>
+                  <button type="button" onClick={() => { setTransferConv(viewConv); setTransferTo(null); setShowTransferModal(true); }} className="px-3 py-2 rounded bg-gray-200/60 dark:bg-slate-800/60">Transferir</button>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { navigate(`/chat?conversation=${viewConv?.id}`); setLeftPanelOpen(false); }} className="px-3 py-2 rounded bg-gray-200/60 dark:bg-slate-800/60">Abrir chat</button>
+                  <button type="button" onClick={() => { setLeftPanelOpen(false); setViewConv(null); }} className="px-3 py-2 rounded bg-gray-300 dark:bg-slate-700">Fechar</button>
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );

@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { generateId } from '@/services/api';
 import { Trash, PlusCircle, Play, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
 
 type Webhook = {
   id: string;
@@ -17,6 +24,8 @@ const AVAILABLE_EVENTS = ['message.created', 'message.delivered', 'contact.creat
 const Webhooks: React.FC = () => {
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Webhook | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     const API_BASE = import.meta.env.VITE_API_BASE || '/api';
@@ -49,7 +58,17 @@ const Webhooks: React.FC = () => {
   const handleCreate = () => {
     const id = generateId();
     const newW: Webhook = { id, name: `webhook-${id.slice(0,6)}`, url: '', events: ['message.created'], enabled: false, created_at: new Date().toISOString() };
-    save([newW, ...webhooks]);
+    setEditing(newW);
+    setSheetOpen(true);
+  };
+
+  const handleSaveEditing = (w: Webhook) => {
+    const exists = webhooks.some(x => x.id === w.id);
+    const next = exists ? webhooks.map(x => x.id === w.id ? w : x) : [w, ...webhooks];
+    save(next);
+    setEditing(null);
+    setSheetOpen(false);
+    // small flash to highlight new item
     setCreating(true);
     setTimeout(() => setCreating(false), 200);
   };
@@ -85,7 +104,7 @@ const Webhooks: React.FC = () => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Integração Webhooks (Global)</h3>
         <div>
-          <button onClick={handleCreate} className="px-3 py-2 bg-gray-200/40 dark:bg-slate-800/40 rounded text-sm flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Nova</button>
+          <button type="button" onClick={handleCreate} className="px-3 py-2 bg-gray-200/40 dark:bg-slate-800/40 rounded text-sm flex items-center gap-2"><PlusCircle className="w-4 h-4" /> Nova</button>
         </div>
       </div>
 
@@ -125,13 +144,63 @@ const Webhooks: React.FC = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <button onClick={() => toggleEnabled(w.id)} className="px-3 py-1 rounded bg-gray-200/40 dark:bg-slate-800/40 text-sm">Toggle</button>
-              <button onClick={() => testWebhook(w.url)} className="px-3 py-1 rounded bg-gray-200/40 dark:bg-slate-800/40 text-sm flex items-center gap-2"><Play className="w-4 h-4" /> Testar</button>
-              <button onClick={() => handleDelete(w.id)} className="px-3 py-1 rounded bg-rose-700/20 text-rose-300 text-sm flex items-center gap-2"><Trash className="w-4 h-4" /> Deletar</button>
+              <button type="button" onClick={() => toggleEnabled(w.id)} className="px-3 py-1 rounded bg-gray-200/40 dark:bg-slate-800/40 text-sm">Toggle</button>
+              <button type="button" onClick={() => { setEditing(w); setSheetOpen(true); }} className="px-3 py-1 rounded bg-gray-200/40 dark:bg-slate-800/40 text-sm">Editar</button>
+              <button type="button" onClick={() => testWebhook(w.url)} className="px-3 py-1 rounded bg-gray-200/40 dark:bg-slate-800/40 text-sm flex items-center gap-2"><Play className="w-4 h-4" /> Testar</button>
+              <button type="button" onClick={() => handleDelete(w.id)} className="px-3 py-1 rounded bg-rose-700/20 text-rose-300 text-sm flex items-center gap-2"><Trash className="w-4 h-4" /> Deletar</button>
             </div>
           </div>
         ))}
       </div>
+      {/* Drawer for create / edit */}
+      <Sheet open={sheetOpen} onOpenChange={(v: boolean) => { if (!v) setEditing(null); setSheetOpen(v); }}>
+        <SheetContent side="right">
+          <SheetHeader>
+            <SheetTitle>{editing ? (webhooks.some(x => x.id === editing.id) ? 'Editar Webhook' : 'Novo Webhook') : 'Webhook'}</SheetTitle>
+            <SheetDescription>Configure o webhook e selecione os eventos.</SheetDescription>
+          </SheetHeader>
+
+          {editing && (
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-slate-300">Nome</label>
+                <input className="w-full bg-gray-200/40 dark:bg-slate-800/40 rounded px-3 py-2 text-sm text-gray-900 dark:text-white" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-slate-300">URL</label>
+                <input className="w-full bg-gray-200/40 dark:bg-slate-800/40 rounded px-3 py-2 text-sm text-gray-900 dark:text-white" placeholder="https://example.com/webhook" value={editing.url} onChange={(e) => setEditing({ ...editing, url: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-slate-300">Eventos</label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {AVAILABLE_EVENTS.map(ev => {
+                    const active = editing.events.includes(ev);
+                    return (
+                      <button
+                        key={ev}
+                        type="button"
+                        onClick={() => {
+                          const nextEvents = active ? editing.events.filter(x => x !== ev) : [...editing.events, ev];
+                          setEditing({ ...editing, events: nextEvents });
+                        }}
+                        className={`inline-flex items-center gap-2 text-sm select-none rounded px-2 py-1 transition-colors ${active ? 'bg-emerald-600 text-white' : 'bg-gray-200/30 dark:bg-slate-800/30 text-gray-700 dark:text-slate-200'}`}
+                      >
+                        {active ? <Check className="w-4 h-4" /> : <span className="w-4 h-4" />}
+                        <span className="leading-none">{ev}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button type="button" onClick={() => { setEditing(null); setSheetOpen(false); }} className="px-4 py-2 rounded bg-gray-200/40 dark:bg-slate-800/40">Cancelar</button>
+                  <button type="button" onClick={() => editing && handleSaveEditing(editing)} className="px-4 py-2 rounded bg-emerald-600 text-white">Salvar</button>
+                </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

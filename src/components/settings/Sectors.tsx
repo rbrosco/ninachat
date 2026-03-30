@@ -55,7 +55,8 @@ const Sectors: React.FC = () => {
 
   const handleAdd = () => {
     const id = `sector-${Date.now()}`;
-    setSectors(prev => [{ id, name: 'Novo Setor', slug: 'novo-setor', description: '', members: [], isDefault: false }, ...prev]);
+    const newSector = { id, name: 'Novo Setor', slug: `novo-setor-${Date.now()}`, description: '', members: [], isDefault: false };
+    setEditingSector(newSector);
   };
 
   const handleOpenMembers = (s: any) => setMembersModalSector(s);
@@ -78,7 +79,11 @@ const Sectors: React.FC = () => {
 
   const saveEdit = () => {
     if (!editingSector) return;
-    setSectors(prev => prev.map(s => s.id === editingSector.id ? editingSector : s));
+    setSectors(prev => {
+      const exists = prev.some(s => s.id === editingSector.id);
+      if (exists) return prev.map(s => s.id === editingSector.id ? editingSector : s);
+      return [editingSector, ...prev];
+    });
     setEditingSector(null);
   };
 
@@ -119,7 +124,7 @@ const Sectors: React.FC = () => {
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Organize sua equipe em setores para melhor distribuição de conversas</p>
         </div>
         <div>
-          <button onClick={handleAdd} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-gray-900 dark:text-white rounded-lg">
+          <button type="button" onClick={handleAdd} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-gray-900 dark:text-white rounded-lg">
             <Plus className="w-4 h-4" /> Novo Setor
           </button>
         </div>
@@ -164,12 +169,43 @@ const Sectors: React.FC = () => {
           </SheetHeader>
           {editingSector && (
             <div className="p-6 space-y-3">
-              <input className="w-full bg-gray-200/30 dark:bg-slate-800/30 px-3 py-2 rounded" value={editingSector.name} onChange={e => setEditingSector({ ...editingSector, name: e.target.value })} />
-              <input className="w-full bg-gray-200/30 dark:bg-slate-800/30 px-3 py-2 rounded" value={editingSector.slug} onChange={e => setEditingSector({ ...editingSector, slug: e.target.value })} />
-              <textarea className="w-full bg-gray-200/30 dark:bg-slate-800/30 px-3 py-2 rounded" value={editingSector.description} onChange={e => setEditingSector({ ...editingSector, description: e.target.value })} />
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-slate-300">Nome</label>
+                <input className="w-full bg-gray-200/30 dark:bg-slate-800/30 px-3 py-2 rounded mt-2" value={editingSector.name} onChange={e => setEditingSector({ ...editingSector, name: e.target.value })} />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-slate-300">Slug</label>
+                <input className="w-full bg-gray-200/30 dark:bg-slate-800/30 px-3 py-2 rounded mt-2" value={editingSector.slug} onChange={e => setEditingSector({ ...editingSector, slug: e.target.value })} />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-slate-300">Descrição</label>
+                <textarea className="w-full bg-gray-200/30 dark:bg-slate-800/30 px-3 py-2 rounded mt-2" value={editingSector.description} onChange={e => setEditingSector({ ...editingSector, description: e.target.value })} />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-slate-300 mb-2">Selecionar membros (agents)</label>
+                <div className="space-y-2 max-h-60 overflow-y-auto p-2 rounded border border-gray-200/30 dark:border-slate-800/30">
+                  {team.map(m => (
+                    <label key={m.id} className="flex items-center justify-between gap-3 p-2 rounded hover:bg-gray-200/40 dark:hover:bg-slate-800/40">
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white">{m.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-slate-400">{m.role}</div>
+                      </div>
+                      <Switch checked={(editingSector.members || []).includes(m.id)} onCheckedChange={() => {
+                        const set = new Set(editingSector.members || []);
+                        if (set.has(m.id)) set.delete(m.id); else set.add(m.id);
+                        setEditingSector({ ...editingSector, members: Array.from(set) });
+                      }} />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div className="mt-4 flex justify-end gap-2">
-                <button onClick={() => setEditingSector(null)} className="px-3 py-2 rounded bg-gray-300 dark:bg-slate-700">Cancelar</button>
-                <button onClick={saveEdit} className="px-3 py-2 rounded bg-emerald-600 text-gray-900 dark:text-white">Salvar</button>
+                <button type="button" onClick={() => setEditingSector(null)} className="px-3 py-2 rounded bg-gray-300 dark:bg-slate-700">Cancelar</button>
+                <button type="button" onClick={saveEdit} className="px-3 py-2 rounded bg-emerald-600 text-gray-900 dark:text-white">Salvar</button>
               </div>
             </div>
           )}

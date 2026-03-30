@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Edit, Save, ToggleRight } from 'lucide-react';
 import { Button } from '../Button';
 import { api } from '@/services/api';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
 
 const emptyRule = { id: '', name: '', instanceId: '', fixedAssignee: '', roundRobin: [], isActive: true };
 
@@ -10,6 +17,7 @@ const AssignmentRules: React.FC = () => {
   const [instances, setInstances] = useState<any[]>([]);
   const [team, setTeam] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,9 +32,9 @@ const AssignmentRules: React.FC = () => {
     load();
   }, []);
 
-  const handleAdd = () => { setEditing({ ...emptyRule }); };
+  const handleAdd = () => { setEditing({ ...emptyRule }); setSheetOpen(true); };
 
-  const handleEdit = (r: any) => setEditing({ ...r });
+  const handleEdit = (r: any) => { setEditing({ ...r }); setSheetOpen(true); };
 
   const handleSave = async () => {
     if (!editing) return;
@@ -34,6 +42,7 @@ const AssignmentRules: React.FC = () => {
     const r = await api.fetchAssignmentRules();
     setRules(r || []);
     setEditing(null);
+    setSheetOpen(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -82,31 +91,46 @@ const AssignmentRules: React.FC = () => {
         ))}
       </div>
 
-      {editing && (
-        <div className="mt-6 card-surface p-4 rounded">
-          <div className="flex items-center justify-between mb-3">
-            <strong>{editing.id ? 'Editar Regra' : 'Nova Regra'}</strong>
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setEditing(null)}><Save className="w-4 h-4 mr-2"/>Fechar</Button>
+      <Sheet open={sheetOpen} onOpenChange={(v: boolean) => { if (!v) setEditing(null); setSheetOpen(v); }}>
+        <SheetContent side="right">
+          <SheetHeader>
+            <SheetTitle>{editing ? (editing.id ? 'Editar Regra' : 'Nova Regra') : 'Nova Regra'}</SheetTitle>
+            <SheetDescription>Configure uma regra para atribuir conversas automaticamente.</SheetDescription>
+          </SheetHeader>
+
+          {editing && (
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-slate-300">Nome da regra</label>
+                <input className="w-full theme-input px-2 py-2 text-sm mt-2" placeholder="Nome da regra" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-slate-300">Instância</label>
+                  <select className="w-full theme-input px-2 py-2 text-sm mt-2" value={editing.instanceId || ''} onChange={e => setEditing({ ...editing, instanceId: e.target.value })}>
+                    <option value="">-- Selecione instância --</option>
+                    {instances.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-slate-300">Atribuição fixa (opcional)</label>
+                  <select className="w-full theme-input px-2 py-2 text-sm mt-2" value={editing.fixedAssignee || ''} onChange={e => setEditing({ ...editing, fixedAssignee: e.target.value })}>
+                    <option value="">-- Atribuição fixa (opcional) --</option>
+                    {team.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => { setEditing(null); setSheetOpen(false); }}>Cancelar</Button>
+                <Button variant="primary" onClick={handleSave}><Save className="w-4 h-4 mr-2"/>Salvar</Button>
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <input className="col-span-2 theme-input px-2 py-2 text-sm" placeholder="Nome da regra" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} />
-            <select className="theme-input px-2 py-2 text-sm" value={editing.instanceId || ''} onChange={e => setEditing({ ...editing, instanceId: e.target.value })}>
-              <option value="">-- Selecione instância --</option>
-              {instances.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-            <select className="theme-input px-2 py-2 text-sm" value={editing.fixedAssignee || ''} onChange={e => setEditing({ ...editing, fixedAssignee: e.target.value })}>
-              <option value="">-- Atribuição fixa (opcional) --</option>
-              {team.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button variant="primary" onClick={handleSave}><Save className="w-4 h-4 mr-2"/>Salvar</Button>
-          </div>
-        </div>
-      )}
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

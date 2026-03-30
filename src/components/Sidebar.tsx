@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, Calendar, Kanban, Eye } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,6 +7,7 @@ import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/ui/sidebar';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { FiUser, FiSettings, FiLogOut } from 'react-icons/fi';
 import viaIcon from '@/assets/icon-via.png';
 
 const menuItemsBase = [
@@ -116,25 +117,69 @@ const SidebarContent = () => {
       
 
       {/* User Footer */}
-      <div className="border-t border-border/50 pt-4">
-        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-secondary/50 transition-colors cursor-pointer group">
+      <div className="border-t border-border/50 pt-4 relative">
+        <ProfileFooter openSidebar={open} />
+      </div>
+    </>
+  );
+};
+
+const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const [openMenu, setOpenMenu] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (containerRef.current.contains(e.target as Node)) return;
+      setOpenMenu(false);
+    };
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, []);
+
+  const handleProfile = () => { setOpenMenu(false); navigate('/profile'); };
+  const handleSettings = () => { setOpenMenu(false); navigate('/settings'); };
+  const handleSignOut = async () => { setOpenMenu(false); try { await auth.signOut(); navigate('/auth'); } catch (err) { console.error('signout', err); } };
+
+  return (
+    <div className="pt-2 px-2">
+      <div ref={containerRef} className="relative">
+        <button onClick={() => setOpenMenu(v => !v)} className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-secondary/50 transition-colors group">
           <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary/20 to-secondary flex items-center justify-center text-xs font-bold text-primary border border-border ring-2 ring-transparent group-hover:ring-primary/20 transition-all flex-shrink-0">
             AD
           </div>
           <motion.div
             animate={{
-              display: open ? "block" : "none",
-              opacity: open ? 1 : 0,
+              display: openSidebar ? "block" : "none",
+              opacity: openSidebar ? 1 : 0,
             }}
             transition={{ duration: 0.2 }}
-            className="flex-1 overflow-hidden"
+            className="flex-1 overflow-hidden text-left"
           >
             <p className="text-sm font-medium text-foreground group-hover:text-foreground whitespace-nowrap">Admin</p>
             <p className="text-xs text-muted-foreground truncate">admin@mock.local</p>
           </motion.div>
-        </div>
+        </button>
+
+        {openMenu && (
+          <div className="absolute left-2 bottom-14 w-44 bg-white dark:bg-slate-800 shadow-lg rounded-md z-50 border border-border/50 py-1">
+            <button onClick={handleProfile} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
+              <FiUser className="w-4 h-4 mr-2 text-gray-600 dark:text-slate-300" /> Perfil
+            </button>
+            <button onClick={handleSettings} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
+              <FiSettings className="w-4 h-4 mr-2 text-gray-600 dark:text-slate-300" /> Configurações
+            </button>
+            <div className="border-t border-border/50 my-1" />
+            <button onClick={handleSignOut} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
+              <FiLogOut className="w-4 h-4 mr-2" /> Sair
+            </button>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 
