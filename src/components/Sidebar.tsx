@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, Calendar, Kanban, Eye } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, Calendar, Kanban, Eye, Sun, Moon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/services/api';
@@ -132,6 +132,7 @@ const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => document.documentElement.classList.contains('light') ? 'light' : 'dark');
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -145,6 +146,21 @@ const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
   const handleProfile = () => { setOpenMenu(false); navigate('/profile'); };
   const handleSettings = () => { setOpenMenu(false); navigate('/settings'); };
   const handleSignOut = async () => { setOpenMenu(false); try { await auth.signOut(); navigate('/auth'); } catch (err) { console.error('signout', err); } };
+
+  const toggleTheme = async () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    const root = document.documentElement;
+    if (newTheme === 'light') { root.classList.remove('dark'); root.classList.add('light'); }
+    else { root.classList.remove('light'); root.classList.add('dark'); }
+    setTheme(newTheme);
+    // persist to backend (same as Settings)
+    const API_BASE = (import.meta as any).env?.VITE_API_BASE || '/api';
+    try {
+      const res = await fetch(`${API_BASE}/system_settings`);
+      const current = res.ok ? ((await res.json())?.data ?? await res.json() ?? {}) : {};
+      await fetch(`${API_BASE}/system_settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...current, theme: newTheme }) });
+    } catch (err) { console.error('Failed to persist theme', err); }
+  };
 
   const toggleMenu = () => {
     const willOpen = !openMenu;
@@ -160,8 +176,8 @@ const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
       let chosenLeft = leftIfLeft >= 12 ? leftIfLeft : leftIfRight;
       chosenLeft = Math.min(Math.max(chosenLeft, 12), Math.max(12, window.innerWidth - menuW - 12));
       const left = chosenLeft;
-      // center vertically on the button and move it further down so it sits below the click (more space)
-      const rawTop = Math.round(r.top + r.height / 2 + 76);
+      // position the menu just below the button (closer to the click)
+      const rawTop = Math.round(r.bottom + 8);
       // clamp vertical position to keep menu visible (estimate max menu height ~160px)
       const minTop = 12;
       const maxTop = Math.max(minTop, window.innerHeight - 160 - 12);
@@ -194,13 +210,16 @@ const ProfileFooter: React.FC<{ openSidebar: boolean }> = ({ openSidebar }) => {
         {openMenu && coords && createPortal(
           <div
             className={"w-44 bg-white dark:bg-slate-800 shadow-lg rounded-md z-50 border border-border/50 py-1"}
-            style={{ position: 'fixed', left: coords.left, top: coords.top, transform: 'translateY(-50%)', zIndex: 9999 }}
+            style={{ position: 'fixed', left: coords.left, top: coords.top, zIndex: 9999 }}
           >
             <button onClick={handleProfile} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
               <FiUser className="w-4 h-4 mr-2 text-gray-600 dark:text-slate-300" /> Perfil
             </button>
             <button onClick={handleSettings} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
               <FiSettings className="w-4 h-4 mr-2 text-gray-600 dark:text-slate-300" /> Configurações
+            </button>
+            <button onClick={() => { toggleTheme(); setOpenMenu(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
+              {theme === 'dark' ? <Sun className="w-4 h-4 mr-2 text-gray-600 dark:text-slate-300" /> : <Moon className="w-4 h-4 mr-2 text-gray-600 dark:text-slate-300" />} {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
             </button>
             <div className="border-t border-border/50 my-1" />
             <button onClick={handleSignOut} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center">
